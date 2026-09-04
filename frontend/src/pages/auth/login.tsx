@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import cityImage from "../assets/rainy-city.png";
+import cityImage from "../../assets/rainy-city.png";
 
 type Mode = "login" | "register";
 type VerifyStatus = "idle" | "sending" | "sent" | "verifying" | "verified";
@@ -154,7 +154,13 @@ function LoginFields() {
     setLoading(true);
     try {
       // TODO: apna login API call yahan lagao (POST /api/auth/login)
-      console.log("Login:", { email, password, rememberMe });
+       fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ identifier: email, password })
+      });
     } catch (err: any) {
       setError(err?.message || "Login fail ho gaya. Dobara try karo.");
     } finally {
@@ -285,7 +291,14 @@ function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
     setSubmitting(true);
     try {
       // TODO: apna create-account API call yahan lagao (POST /api/auth/register)
-      console.log("Create account:", { phone, email, password });
+     
+       fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ phone, email, password })
+      }); 
       onSuccess();
     } catch (err: any) {
       setError(err?.message || "Account create nahi ho paya. Dobara try karo.");
