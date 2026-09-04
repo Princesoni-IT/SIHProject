@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Droplet,
   Mail,
@@ -137,6 +138,7 @@ function VerifyField({
 /* ---------------- Login form ---------------- */
 
 function LoginFields() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -160,6 +162,12 @@ function LoginFields() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ identifier: email, password })
+      }).then((response) => {
+        if (response.ok) {
+          navigate("user-dashboarad laga do");
+        } else {
+          throw new Error("Login fail ho gaya. Dobara try karo.");
+        }
       });
     } catch (err: any) {
       setError(err?.message || "Login fail ho gaya. Dobara try karo.");
