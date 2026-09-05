@@ -62,11 +62,14 @@ export const loginUser = async ({
   }
   const token = generateToken(user);
 
-  // Return only the information required by the frontend.
+  // Return information required by frontend
   return {
-    id: user._id,
-    email: user.email,
-    phone: user.phone,
     token,
+    user: {
+      id: user._id,
+      email: user.email,
+      phone: user.phone,
+      role: "user",
+    },
   };
 };

@@ -9,16 +9,14 @@ export const registerSchema = z.object({
 
   password: z
     .string()
-    .min(8, "Password must contain at least 8 characters")
+    .min(6, "Password must contain at least 6 characters")
     .max(128, "Password must not exceed 128 characters"),
 
   phone: z
     .string()
     .trim()
-    .regex(
-      /^\+?[1-9]\d{7,14}$/,
-      "Invalid phone number"
-    ),
+    .min(5, "Phone number is too short")
+    .max(20, "Phone number is too long"),
 });
 
 export const loginSchema = z.object({
@@ -30,6 +28,6 @@ export const loginSchema = z.object({
 
   password: z
     .string()
-    .min(8, "Password must contain at least 8 characters")
+    .min(1, "Password is required")
     .max(128, "Password must not exceed 128 characters"),
 });

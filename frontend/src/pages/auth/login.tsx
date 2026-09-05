@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Droplet,
@@ -150,65 +150,63 @@ function LoginFields() {
     e.preventDefault();
     setError("");
     if (!email || !password) {
-      setError("Email/phone aur password dono fill karo.");
+      setError("Please enter both email/phone and password.");
       return;
     }
     setLoading(true);
-   try {
-  const response = await fetch(
-    "http://localhost:5000/api/auth/login",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        identifier: email,
-        password,
-      }),
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            identifier: email,
+            password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message || "Login failed. Please try again."
+        );
+      }
+
+      // Login successful
+      if (response.status === 200 && data?.success) {
+        const user = data.data.user;
+        // Store JWT token
+        localStorage.setItem(
+          "accessToken",
+          data.data.token
+        );
+
+        // Store user information
+        localStorage.setItem(
+          "user",
+          JSON.stringify(user)
+        );
+        
+        // Redirect based on role
+        if (user && user.role === "admin") {
+          navigate("/admin-dashboard");
+        } else {
+          navigate("/user-dashboard");
+        }
+        return;
+      }
+    } catch (err: any) {
+      setError(
+        err?.message || "Login failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || "Login fail ho gaya. Dobara try karo."
-    );
-  }
-
-  // Login successful
-  if (response.status === 200 && data?.success) {
-    const user = data.data.user;
-    // Store JWT token
-    localStorage.setItem(
-      "accessToken",
-      data.data.token
-    );
-
-    // Store user information
-    localStorage.setItem(
-      "user",
-      JSON.stringify(data.data.user)
-    );
-    //redirect to admin dashboard if user is admin
-    if (user.role === "admin") {
-      navigate("/admin-dashboard");
-      return;
-    }else {
-
-    // Redirect to user dashboard
-    navigate("/user-dashboard");
-    }
-    return;
-  }
-} catch (err: any) {
-  setError(
-    err?.message || "Login fail ho gaya. Dobara try karo."
-  );
-} finally {
-  setLoading(false);
-}
   };
 
   return (
@@ -298,130 +296,142 @@ function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
- const sendOtp = async (field: "phone" | "email") => {
-  const setStatus =
-    field === "phone" ? setPhoneStatus : setEmailStatus;
+  const sendOtp = async (field: "phone" | "email") => {
+    const setStatus =
+      field === "phone" ? setPhoneStatus : setEmailStatus;
 
-  // Phone OTP verification is skipped for now
-  if (field === "phone") {
-    setStatus("sent");
-    return;
-  }
-
-  // Email OTP
-  if (!email) {
-    setStatus("error");
-    return;
-  }
-
-  setStatus("sending");
-
-  try {
-    const response = await fetch(
-      "http://localhost:5000/api/otp/send",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.message || "Failed to send OTP"
-      );
+    // Hardcoded Phone OTP (123456)
+    if (field === "phone") {
+      setPhoneOtp("123456");
+      setStatus("sent");
+      return;
     }
 
-    setStatus("sent");
-  } catch (error) {
-    console.error("Send OTP error:", error);
-    setStatus("error");
-  }
-};
-
-  const confirmOtp = async (field: "phone" | "email") => {
-  const setStatus =
-    field === "phone" ? setPhoneStatus : setEmailStatus;
-
-  const otp = field === "phone" ? phoneOtp : emailOtp;
-
-  if (otp.length !== 6) return;
-
-  // Skip phone OTP verification for now
-  if (field === "phone") {
-    setStatus("verified");
-    return;
-  }
-
-  setStatus("verifying");
-
-  try {
-    const response = await fetch(
-      "http://localhost:5000/api/otp/verify",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          otp: emailOtp,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-     if (!response.ok || !data?.success) {
+    // Email OTP
+    if (!email) {
+      setError("Please enter your email address to receive OTP.");
       setStatus("error");
       return;
     }
 
-    // Only backend-confirmed OTP can become verified
-    setStatus("verified");
-  } catch (error) {
-    console.error("OTP verification error:", error);
-    setStatus("error");
-  }
-};
+    setStatus("sending");
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/otp/send",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message || "Failed to send OTP"
+        );
+      }
+
+      setStatus("sent");
+    } catch (error: any) {
+      console.error("Send OTP error:", error);
+      setError(error?.message || "Failed to send OTP. Please try again.");
+      setStatus("error");
+    }
+  };
+
+  const confirmOtp = async (field: "phone" | "email") => {
+    const setStatus =
+      field === "phone" ? setPhoneStatus : setEmailStatus;
+
+    const otp = field === "phone" ? phoneOtp : emailOtp;
+
+    if (otp.length !== 6) return;
+
+    // Hardcoded phone OTP (123456) verification
+    if (field === "phone") {
+      if (otp === "123456") {
+        setStatus("verified");
+      } else {
+        setError("Invalid Phone OTP. Please enter 123456.");
+        setStatus("error");
+      }
+      return;
+    }
+
+    setStatus("verifying");
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/otp/verify",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email,
+            otp: emailOtp,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        setError(data?.message || "Invalid OTP code.");
+        setStatus("error");
+        return;
+      }
+
+      setStatus("verified");
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      setError(error?.message || "OTP verification failed.");
+      setStatus("error");
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (phoneStatus !== "verified" || emailStatus !== "verified") {
-      setError("Phone aur Email dono verify karna zaroori h.");
+      setError("Please verify both phone number and email address.");
       return;
     }
     if (!password || password.length < 6) {
-      setError("Password kam se kam 6 characters ka hona chahiye.");
+      setError("Password must be at least 6 characters long.");
       return;
     }
     if (password !== confirmPassword) {
-      setError("Password aur Confirm Password match nahi kar rahe.");
+      setError("Password and Confirm Password do not match.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // TODO: apna create-account API call yahan lagao (POST /api/auth/register)
-     
-       fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ phone, email, password })
-      }); 
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to create account. Please try again.");
+      }
       onSuccess();
     } catch (err: any) {
-      setError(err?.message || "Account create nahi ho paya. Dobara try karo.");
+      setError(err?.message || "Failed to create account. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -435,19 +445,24 @@ function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      <VerifyField
-        label="Phone Number"
-        icon={Phone}
-        type="tel"
-        placeholder="Enter your mobile number"
-        value={phone}
-        onChange={setPhone}
-        status={phoneStatus}
-        onSendOtp={() => sendOtp("phone")}
-        otpValue={phoneOtp}
-        onOtpChange={setPhoneOtp}
-        onConfirmOtp={() => confirmOtp("phone")}
-      />
+      <div>
+        <VerifyField
+          label="Phone Number (Test OTP: 123456)"
+          icon={Phone}
+          type="tel"
+          placeholder="Enter your mobile number"
+          value={phone}
+          onChange={setPhone}
+          status={phoneStatus}
+          onSendOtp={() => sendOtp("phone")}
+          otpValue={phoneOtp}
+          onOtpChange={setPhoneOtp}
+          onConfirmOtp={() => confirmOtp("phone")}
+        />
+        {phoneStatus === "sent" && (
+          <p className="text-xs text-blue-600 mt-1">Test OTP is pre-filled (123456). Click Confirm to verify.</p>
+        )}
+      </div>
 
       <VerifyField
         label="Email Address"
@@ -510,9 +525,27 @@ function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
 
 /* ---------------- Page ---------------- */
 
-export default function Login() {
-  const [mode, setMode] = useState<Mode>("login");
+export default function Login({ initialMode = "login" }: { initialMode?: Mode }) {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    const storedUser = localStorage.getItem("user");
+    if (token && storedUser) {
+      try {
+        const u = JSON.parse(storedUser);
+        if (u.role === "admin") {
+          navigate("/admin-dashboard", { replace: true });
+        } else {
+          navigate("/user-dashboard", { replace: true });
+        }
+      } catch (e) {
+        // invalid stored user
+      }
+    }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-sky-50 via-blue-50 to-sky-100 flex items-center justify-center p-4 sm:p-8">
@@ -536,9 +569,9 @@ export default function Login() {
               {registered ? (
                 <div className="text-center py-10">
                   <CheckCircle2 className="text-emerald-500 mx-auto" size={48} />
-                  <h2 className="text-xl font-bold text-slate-900 mt-4">Account created!</h2>
+                  <h2 className="text-xl font-bold text-slate-900 mt-4">Account Created Successfully!</h2>
                   <p className="text-sm text-slate-500 mt-2">
-                    Phone aur email dono verify ho gaye — ab login kar sakte ho.
+                    Phone and email verified — you can now log in.
                   </p>
                   <button
                     onClick={() => {
