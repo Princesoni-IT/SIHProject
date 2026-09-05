@@ -179,6 +179,7 @@ function LoginFields() {
 
   // Login successful
   if (response.status === 200 && data?.success) {
+    const user = data.data.user;
     // Store JWT token
     localStorage.setItem(
       "accessToken",
@@ -190,9 +191,15 @@ function LoginFields() {
       "user",
       JSON.stringify(data.data.user)
     );
+    //redirect to admin dashboard if user is admin
+    if (user.role === "admin") {
+      navigate("/admin-dashboard");
+      return;
+    }else {
 
     // Redirect to user dashboard
     navigate("/user-dashboard");
+    }
     return;
   }
 } catch (err: any) {

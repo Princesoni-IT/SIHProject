@@ -13,6 +13,7 @@ export const generateToken = (user) => {
       sub: user._id.toString(),
       email: user.email,
       phone: user.phone,
+        role: user.role || "user",
     },
     JWT_SECRET,
     {
