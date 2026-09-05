@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import User from "../models/user.model.js";
 import { ApiError } from "../utils/api-error.js";
+import { generateToken } from "../utils/jwt.js";
 
 export const loginUser = async ({
   identifier,
@@ -36,11 +37,13 @@ export const loginUser = async ({
       "Invalid email/phone number or password"
     );
   }
+  const token = generateToken(user);
 
   // Return only the information required by the frontend.
   return {
     id: user._id,
     email: user.email,
     phone: user.phone,
+    token,
   };
 };
