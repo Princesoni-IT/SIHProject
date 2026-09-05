@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import authRoutes from "./routes/auth.routes.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
+import otpRoutes from "./routes/otp.routes.js";
 
 
 const app = express();
@@ -54,7 +55,7 @@ app.use(
 );
 
 
-
+app.use("/api/otp", otpRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

@@ -1,12 +1,36 @@
 import bcrypt from "bcrypt";
 import User from "../models/user.model.js";
 import { ApiError } from "../utils/api-error.js";
+import { generateToken } from "../utils/jwt.js";
 
 export const loginUser = async ({
   identifier,
   password,
 }) => {
   const value = identifier.trim();
+   // Admin login
+  if (
+    value.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase() &&
+    password === process.env.ADMIN_PASSWORD
+  ) {
+    const token = generateToken({
+      _id: "admin",
+      email: process.env.ADMIN_EMAIL,
+      phone: null,
+      role: "admin",
+    });
+
+    return {
+      token,
+      user: {
+        id: "admin",
+        email: process.env.ADMIN_EMAIL,
+        role: "admin",
+      },
+    };
+  }
+
+  // Existing user login
 
   // Check whether the identifier is an email or phone number.
   const isEmail = value.includes("@");
@@ -36,11 +60,13 @@ export const loginUser = async ({
       "Invalid email/phone number or password"
     );
   }
+  const token = generateToken(user);
 
   // Return only the information required by the frontend.
   return {
     id: user._id,
     email: user.email,
     phone: user.phone,
+    token,
   };
 };

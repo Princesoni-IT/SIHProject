@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import {useNavigate} from "react-router-dom";
 import {
   Droplet,
   Mail,
@@ -12,7 +13,7 @@ import {
 import cityImage from "../../assets/rainy-city.png";
 
 type Mode = "login" | "register";
-type VerifyStatus = "idle" | "sending" | "sent" | "verifying" | "verified";
+type VerifyStatus = "idle" | "sending" | "sent" | "verifying" | "verified"| "error";
 
 
 /* ---------------- Illustration ---------------- */
@@ -138,6 +139,7 @@ function VerifyField({
 /* ---------------- Login form ---------------- */
 
 function LoginFields() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -153,21 +155,60 @@ function LoginFields() {
       return;
     }
     setLoading(true);
-    try {
-      // TODO: apna login API call yahan lagao (POST /api/auth/login)
-      
-      fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ identifier: email, password })
-      });
-    } catch (err: any) {
-      setError(err?.message || "Login fail ho gaya. Dobara try karo.");
-    } finally {
-      setLoading(false);
+   try {
+  const response = await fetch(
+    "http://localhost:5000/api/auth/login",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        identifier: email,
+        password,
+      }),
     }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message || "Login fail ho gaya. Dobara try karo."
+    );
+  }
+
+  // Login successful
+  if (response.status === 200 && data?.success) {
+    const user= data.data.user;
+    // Store JWT token
+    localStorage.setItem(
+      "accessToken",
+      data.data.token
+    );
+
+    // Store user information
+    localStorage.setItem(
+      "user",
+      JSON.stringify(data.data.user)
+    );
+    //redirect based on role
+    if(user.role==="admin"){
+      navigate("/admin-dashboard");
+    }else{
+
+    // Redirect to user dashboard
+    navigate("/user-dashboard");
+    }
+  }
+} catch (err: any) {
+  setError(
+    err?.message || "Login fail ho gaya. Dobara try karo."
+  );
+} finally {
+  setLoading(false);
+  navigate("/user-dashboard");
+}
   };
 
   return (
@@ -257,21 +298,98 @@ function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const sendOtp = (field: "phone" | "email") => {
-    const setStatus = field === "phone" ? setPhoneStatus : setEmailStatus;
-    setStatus("sending");
-    // TODO: apna send-otp API call yahan lagao (POST /api/auth/send-otp)
-    setTimeout(() => setStatus("sent"), 900);
-  };
+  const sendOtp = async (field: "phone" | "email") => {
+  const setStatus =
+    field === "phone" ? setPhoneStatus : setEmailStatus;
 
-  const confirmOtp = (field: "phone" | "email") => {
-    const setStatus = field === "phone" ? setPhoneStatus : setEmailStatus;
-    const otp = field === "phone" ? phoneOtp : emailOtp;
-    if (otp.length !== 6) return;
-    setStatus("verifying");
-    // TODO: apna verify-otp API call yahan lagao (POST /api/auth/verify-otp)
-    setTimeout(() => setStatus("verified"), 800);
-  };
+  // Phone OTP verification is skipped for now
+  if (field === "phone") {
+    setStatus("sent");
+    return;
+  }
+
+  // Email OTP
+  if (!email) {
+    setStatus("error");
+    return;
+  }
+
+  setStatus("sending");
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/otp/send",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message || "Failed to send OTP"
+      );
+    }
+
+    setStatus("sent");
+  } catch (error) {
+    console.error("Send OTP error:", error);
+    setStatus("error");
+  }
+};
+
+  const confirmOtp = async (field: "phone" | "email") => {
+  const setStatus =
+    field === "phone" ? setPhoneStatus : setEmailStatus;
+
+  const otp = field === "phone" ? phoneOtp : emailOtp;
+
+  if (otp.length !== 6) return;
+
+  // Skip phone OTP verification for now
+  if (field === "phone") {
+    setStatus("verified");
+    return;
+  }
+
+  setStatus("verifying");
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/otp/verify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          otp: otp,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+     if (!response.ok || !data?.success) {
+      setStatus("error");
+      return;
+    }
+
+    // Only backend-confirmed OTP can become verified
+    setStatus("verified");
+  } catch (error) {
+    console.error("OTP verification error:", error);
+    setStatus("error");
+  }
+};
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
